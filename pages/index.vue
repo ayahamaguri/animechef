@@ -21,8 +21,16 @@
     <div v-if="rndResult && freeSearchBtn === false">
       <h3>本日のアニメは、{{ rndResult.anime }}でございます</h3>
     </div>
-
-    <div v-if="apiResult">
+    <div>
+      <v-row
+        ><v-col v-for="n in 3" :key="n"
+          ><v-skeleton-loader
+            v-if="loading === true"
+            type="image,image"
+          ></v-skeleton-loader></v-col
+      ></v-row>
+    </div>
+    <div v-if="apiResult && loading === false">
       <v-row
         ><v-col
           v-for="(result, index) in showAnimes"
@@ -135,7 +143,12 @@ import {
   ref,
   useContext,
   watch,
+  // defineAsyncComponent,
 } from '@nuxtjs/composition-api'
+// import { defineAsyncComponent } from 'vue'
+// import { LoadingAnime } from './components/LoadingAnime.vue'
+// import LoadingAnime from './components/LoadingAnime.vue'
+
 interface Anime {
   mal_id: number
   url: string
@@ -165,6 +178,8 @@ interface AnimeRamResult {
   quote: string
 }
 export default defineComponent({
+  // components: { LoadingAnime },
+
   setup() {
     // axios：Promiseベースのライブラリ。GETやPOSTを使って鯖にあるデータの取得、更新を行う。
     // useContext：propsなしで親から子にコンポーネントが渡せる。
@@ -174,6 +189,7 @@ export default defineComponent({
     const search = ref('')
 
     const listAnimes = async () => {
+      loading.value = true
       apiResult.value = await $axios.$get(
         // ↑axiosのGETメソッド。getの引数のURLに対してGETリクエストを送る。リクエスト後に戻される値はapiResultの中に保存されます。
         'https://api.jikan.moe/v3/search/anime',
@@ -183,10 +199,14 @@ export default defineComponent({
           },
         } // ↑検索後の結果を表示したURL（？ついたやつ）と一緒
       )
+      loading.value = false
     }
     const rndResult = ref<AnimeRamResult>()
-
+    const loading = ref(false)
+    // const loadingFunction = () => setTimeout(rndAnime, 3000)
     const rndAnime = async () => {
+      // await loading = () => loading.value=true
+      loading.value = true
       rndResult.value = await $axios.$get(
         'https://animechan.vercel.app/api/random'
       )
@@ -200,6 +220,7 @@ export default defineComponent({
           },
         } // ↑検索後の結果を表示したURL（？ついたやつ）と一緒
       )
+      loading.value = false
       // if (search.value) {
       //   await (() => (search.value = rndResult.value))
       // }
@@ -227,6 +248,26 @@ export default defineComponent({
     const chefBtn = ref(false)
     const freeSearchBtn = ref(false)
 
+    // import { defineAsyncComponent } from 'vue',
+    // import LoadingAnime from './components/LoadingAnime.vue'
+    //     const asyncModal = {
+    //   component: () => import('./LoadingAnime.vue'),
+
+    //   loading: LoadingAnime
+    // }
+    // const loadinganime = defineAsyncComponent(
+    //   () => import('./LoadingAnime.vue')
+    // )
+    // const loadinganime = defineAsyncComponent(()=> import LoadingAnime from  ('./components/LoadingAnime.vue'))
+    // const loadinganime = defineAsyncComponent({
+    //   loader: () => import('~/components/LoadingAnime.vue'),
+    // })
+    //   mounted() {
+    //   setTimeout(() => {
+    //     this.setLoadingState(false)
+    //   }, 5000)
+    // }
+
     return {
       apiResult,
       listAnimes,
@@ -238,6 +279,9 @@ export default defineComponent({
       orderbtn,
       chefBtn,
       freeSearchBtn,
+      loading,
+      // loadingFunction,
+      // LoadingAnime,
     }
   },
 })
