@@ -1,49 +1,59 @@
 <template>
   <div class="text-center">
     <div>
-      <h2 v-if="orderbtn == false">いらっしゃいませ</h2>
+      <div>
+        <h2 v-if="orderbtn == false">いらっしゃいませ</h2>
 
-      <v-btn
-        v-model="orderbtn"
-        class="ma-5"
-        color="#3c7d9b"
-        dark
-        @click="
-          rndAnime(),
-            (orderbtn = true),
-            (freeSearchBtn = false),
-            (chefBtn = false)
-        "
-        >注文する</v-btn
-      >
-    </div>
+        <v-btn
+          v-model="orderbtn"
+          class="ma-5"
+          color="#3c7d9b"
+          dark
+          @click="
+            rndAnime(),
+              (orderbtn = true),
+              (freeSearchBtn = false),
+              (chefBtn = false)
+          "
+          >注文する</v-btn
+        >
+      </div>
 
-    <div v-if="rndResult && freeSearchBtn === false">
-      <h3>本日のアニメは、{{ rndResult.anime }}でございます</h3>
+      <div v-if="rndResult && freeSearchBtn === false">
+        <h3>本日のアニメは、{{ rndResult.anime }}でございます</h3>
+      </div>
+      <div>
+        <v-row
+          ><v-col v-for="n in 3" :key="n"
+            ><v-skeleton-loader
+              v-if="loading === true"
+              type="image,image"
+            ></v-skeleton-loader></v-col
+        ></v-row>
+      </div>
+      <div v-if="apiResult && loading === false">
+        <v-row
+          ><v-col
+            v-for="(result, index) in showAnimes"
+            :key="index"
+            cols="12"
+            lg="4"
+            sm="6"
+            xs="6"
+            ><v-card dark color="#5b9f8a" class="ma-2"
+              >{{ result.title
+              }}<v-img :src="result.image_url"></v-img></v-card></v-col
+        ></v-row>
+      </div>
     </div>
-    <div>
-      <v-row
-        ><v-col v-for="n in 3" :key="n"
-          ><v-skeleton-loader
-            v-if="loading === true"
-            type="image,image"
-          ></v-skeleton-loader></v-col
+    <div v-if="errorCat === true">
+      <v-row justify="center"
+        ><v-col cols="12" lg="6" sm="8">
+          <v-card
+            ><v-img :src="'https://http.cat/404.jpg'"></v-img></v-card></v-col
       ></v-row>
     </div>
-    <div v-if="apiResult && loading === false">
-      <v-row
-        ><v-col
-          v-for="(result, index) in showAnimes"
-          :key="index"
-          cols="12"
-          lg="4"
-          sm="6"
-          xs="6"
-          ><v-card dark color="#5b9f8a" class="ma-2"
-            >{{ result.title
-            }}<v-img :src="result.image_url"></v-img></v-card></v-col
-      ></v-row>
-    </div>
+
     <div v-if="rndResult && freeSearchBtn === false">
       <v-btn class="ma-5" color="#efebe0" @click="chefBtn = true"
         ><v-icon left>mdi-bell-outline </v-icon>シェフを呼ぶ</v-btn
@@ -74,6 +84,18 @@
           >
         </v-col></v-row
       >
+      <div>
+        <v-btn class="ma-5" color="#efebe0" @click="callDog()"
+          ><v-icon left>mdi-dog</v-icon>犬を呼ぶ</v-btn
+        >
+      </div>
+      <div>
+        <v-row justify="center"
+          ><v-col cols="12" lg="4" sm="6" xs="6">
+            <v-card v-if="dog"
+              ><v-img :src="dog.message"></v-img></v-card></v-col
+        ></v-row>
+      </div>
     </div>
     <div class="mt-10" style="font-family: 'Noto Sans JP', sans-serif">
       <v-chip
@@ -128,7 +150,6 @@
     </div>
     <div>
       <div class="mt-16">special thanks</div>
-
       <a href="https://jikan.moe/">{{ 'jikan' }}</a>
       <br />
       <a href="https://animechan.vercel.app/">{{ 'animechan' }}</a>
@@ -145,9 +166,6 @@ import {
   watch,
   // defineAsyncComponent,
 } from '@nuxtjs/composition-api'
-// import { defineAsyncComponent } from 'vue'
-// import { LoadingAnime } from './components/LoadingAnime.vue'
-// import LoadingAnime from './components/LoadingAnime.vue'
 
 interface Anime {
   mal_id: number
@@ -177,9 +195,13 @@ interface AnimeRamResult {
   character: string
   quote: string
 }
-export default defineComponent({
-  // components: { LoadingAnime },
 
+interface Dog {
+  message: string
+  status: string
+}
+
+export default defineComponent({
   setup() {
     // axios：Promiseベースのライブラリ。GETやPOSTを使って鯖にあるデータの取得、更新を行う。
     // useContext：propsなしで親から子にコンポーネントが渡せる。
@@ -190,8 +212,10 @@ export default defineComponent({
 
     const listAnimes = async () => {
       loading.value = true
+
       apiResult.value = await $axios.$get(
-        // ↑axiosのGETメソッド。getの引数のURLに対してGETリクエストを送る。リクエスト後に戻される値はapiResultの中に保存されます。
+        // ↑axiosのGETメソッド。getの引数のURLに対してGETリクエストを送る。
+        // リクエスト後に戻される値はapiResultの中に保存されます。
         'https://api.jikan.moe/v3/search/anime',
         {
           params: {
@@ -203,28 +227,47 @@ export default defineComponent({
     }
     const rndResult = ref<AnimeRamResult>()
     const loading = ref(false)
-    // const loadingFunction = () => setTimeout(rndAnime, 3000)
+    const dog = ref<Dog>()
+    // async:非同期通信するよ
+    // await:promiseの解決(resoleve)するまで待って、変数には結果を代入するよ。thisの進化形
+    // axios:非同期処理で（HTTP通信プロトコルを使って）、
+    // getとかpostとかヘッダーとかボディとかのお約束でデータをやりとりするよ
+    // get:データちょうだい
+    const callDog = async () =>
+      (dog.value = await $axios.$get('https://dog.ceo/api/breeds/image/random'))
+
     const rndAnime = async () => {
-      // await loading = () => loading.value=true
       loading.value = true
-      rndResult.value = await $axios.$get(
-        'https://animechan.vercel.app/api/random'
-      )
+      try {
+        // throw console.log('error')
+        // HTTP 通信とは
+        // HTML Hyper Text Markup language
+        // HTTP Hyper Text Transfer Protocol
+        // ヘッダー＋ボディを通信先に送信
+        // HTTP リクエスト ヘッダー＋ボディ
+        //    HTTP メソッド GET POST PUT DELETE
+        // HTTP レスポンス ヘッダー＋ボディ
+        rndResult.value = await $axios.$get(
+          'https://animechan.vercel.app/api/random'
+        )
+        // await = promiseの結果(resolve)が出るまで待って代入
+        // thenで promise a  a.then((b)=>console.log(b)) aはpromise<String>,bはstring
 
-      apiResult.value = await $axios.$get(
-        // ↑axiosのGETメソッド。getの引数のURLに対してGETリクエストを送る。リクエスト後に戻される値はapiResultの中に保存されます。
-        'https://api.jikan.moe/v3/search/anime',
-        {
-          params: {
-            q: rndResult.value?.anime,
-          },
-        } // ↑検索後の結果を表示したURL（？ついたやつ）と一緒
-      )
-      loading.value = false
-      // if (search.value) {
-      //   await (() => (search.value = rndResult.value))
-      // }
-
+        apiResult.value = await $axios.$get(
+          // ↑axiosのGETメソッド。getの引数のURLに対してGETリクエストを送る。
+          // リクエスト後に戻される値はapiResultの中に保存されます。
+          'https://api.jikan.moe/v3/search/anime',
+          {
+            params: {
+              q: rndResult.value?.anime,
+            },
+          } // ↑検索後の結果を表示したURL（？ついたやつ）と一緒
+        )
+      } catch (error) {
+        errorCat.value = true
+      } finally {
+        loading.value = false
+      }
       //  ↑axios：Promiseを返す。thenやcatchで処理を続けることが可能。
       // 成功時に返ってくるresonseもJSON形式（パースの処理なしに、そのままresponse.dataで使用できる）
 
@@ -236,10 +279,7 @@ export default defineComponent({
       // .then((response) => response.json())
       // ↑fetchAPIにより返されるResponseオブジェクトは、ただの HTTP レスポンスであり JSON ではありません。
       // 返ってきたresponseにjson()メソッドをつけることでJSONとして使用できます。
-
-      // .then((quote) => console.log(quote))
     }
-    // rndAnime().then(() => (search.value = rndResult.value?.anime))
 
     watch(search, () => console.log(search.value))
     const clear = () => (search.value = '')
@@ -247,26 +287,7 @@ export default defineComponent({
     const orderbtn = ref(false)
     const chefBtn = ref(false)
     const freeSearchBtn = ref(false)
-
-    // import { defineAsyncComponent } from 'vue',
-    // import LoadingAnime from './components/LoadingAnime.vue'
-    //     const asyncModal = {
-    //   component: () => import('./LoadingAnime.vue'),
-
-    //   loading: LoadingAnime
-    // }
-    // const loadinganime = defineAsyncComponent(
-    //   () => import('./LoadingAnime.vue')
-    // )
-    // const loadinganime = defineAsyncComponent(()=> import LoadingAnime from  ('./components/LoadingAnime.vue'))
-    // const loadinganime = defineAsyncComponent({
-    //   loader: () => import('~/components/LoadingAnime.vue'),
-    // })
-    //   mounted() {
-    //   setTimeout(() => {
-    //     this.setLoadingState(false)
-    //   }, 5000)
-    // }
+    const errorCat = ref(false)
 
     return {
       apiResult,
@@ -280,17 +301,18 @@ export default defineComponent({
       chefBtn,
       freeSearchBtn,
       loading,
-      // loadingFunction,
-      // LoadingAnime,
+      dog,
+      callDog,
+      errorCat,
     }
   },
 })
-</script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho&display=swap');
-#app {
-  font-family: 'Shippori Mincho', serif;
+// <style scoped>
+// @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho&display=swap');
+// #app {
+//   font-family: 'Shippori Mincho', serif;
 
-  background-color: #f7c3bf;
-}
-</style>
+//   background-color: #f7c3bf;
+// }
+// </style>
+</script>
